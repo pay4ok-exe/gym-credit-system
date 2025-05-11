@@ -1,17 +1,23 @@
 // scripts/deploy.js
-const hre = require("hardhat");
+const { ethers } = require("hardhat");
 
 async function main() {
+  console.log("Начинаем развертывание контрактов...");
+
   // Deploy UserProfile contract
-  const UserProfile = await hre.ethers.getContractFactory("UserProfile");
+  const UserProfile = await ethers.getContractFactory("UserProfile");
   const userProfile = await UserProfile.deploy();
-  await userProfile.deployed();
+  
+  // Ждем, пока контракт будет действительно развернут
+  await userProfile.deployTransaction.wait();
   console.log("UserProfile deployed to:", userProfile.address);
 
   // Deploy GymCoin contract
-  const GymCoin = await hre.ethers.getContractFactory("GymCoin");
+  const GymCoin = await ethers.getContractFactory("GymCoin");
   const gymCoin = await GymCoin.deploy(userProfile.address);
-  await gymCoin.deployed();
+  
+  // Ждем, пока контракт будет действительно развернут
+  await gymCoin.deployTransaction.wait();
   console.log("GymCoin deployed to:", gymCoin.address);
 
   // Save the contract addresses

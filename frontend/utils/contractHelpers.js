@@ -1,23 +1,37 @@
-// frontend/src/utils/contractHelpers.js
+// frontend/utils/contractHelpers.js
 import { ethers } from 'ethers';
+import contractAddresses from './contractAddresses.json';
 
-// Import contract ABIs
-// These will be dynamically loaded after compilation
+// Import ABIs from generated artifacts (путь автоматически установлен hardhat.config.js)
 let userProfileABI;
 let gymCoinABI;
-let contractAddresses;
 
+// Динамический импорт ABIs с проверкой ошибок
 try {
-  // Load the contract ABIs and addresses
+  // Если компиляция прошла, ABIs будут доступны здесь
   userProfileABI = require('../artifacts/contracts/UserProfile.sol/UserProfile.json').abi;
   gymCoinABI = require('../artifacts/contracts/GymCoin.sol/GymCoin.json').abi;
-  contractAddresses = require('./contractAddresses.json');
 } catch (error) {
-  console.error("Error loading contract artifacts:", error);
-  // Fallback to empty values if not found
-  userProfileABI = [];
-  gymCoinABI = [];
-  contractAddresses = { userProfile: '', gymCoin: '' };
+  console.error("Ошибка загрузки ABI, используем резервные интерфейсы:", error);
+  
+  // Резервные минимальные ABI для критических функций
+  userProfileABI = [
+    "function registerUser(string memory _username, string memory _email) public",
+    "function getUserInfo(address userAddress) public view returns (string memory username, string memory email, bool isRegistered)",
+    "function isUserRegistered(address userAddress) public view returns (bool)",
+    "function owner() public view returns (address)"
+  ];
+
+  gymCoinABI = [
+    "function buy(uint256 gcAmount) public payable",
+    "function sell(uint256 gcAmount) public",
+    "function setRates(uint256 _sellRate, uint256 _buyRate) public",
+    "function balanceOf(address account) public view returns (uint256)",
+    "function sellRate() public view returns (uint256)",
+    "function buyRate() public view returns (uint256)",
+    "function transfer(address to, uint256 amount) public returns (bool)",
+    "function owner() public view returns (address)"
+  ];
 }
 
 let provider;
