@@ -8,25 +8,51 @@ let provider;
 let signer;
 let userProfileContract;
 let gymCoinContract;
-
 export const initializeWeb3 = async () => {
   if (typeof window === 'undefined' || !window.ethereum) {
     throw new Error("MetaMask not installed");
   }
   
   try {
-    // Initialize provider and request accounts
+    // Инициализация провайдера и запрос аккаунтов
     provider = new ethers.providers.Web3Provider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
     signer = provider.getSigner();
     
-    // Check if we're on Sepolia network (chainId 11155111)
+    // Проверка сети - ожидаем локальную сеть (chainId 31337)
     const network = await provider.getNetwork();
-    if (network.chainId !== 11155111) {
-      console.warn("Not connected to Sepolia testnet");
+    if (network.chainId !== 31337) {
+      console.warn("Не подключено к локальной сети Hardhat");
+      
+      // Попытка переключиться на локальную сеть
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x7A69' }], // 31337 в 16-ричной системе
+        });
+      } catch (switchError) {
+        // Если сеть не существует, добавляем ее
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: '0x7A69',
+                chainName: 'Localhost 8545',
+                nativeCurrency: {
+                  name: 'Ethereum',
+                  symbol: 'ETH',
+                  decimals: 18
+                },
+                rpcUrls: ['http://localhost:8545'],
+              },
+            ],
+          });
+        }
+      }
     }
     
-    // Initialize contracts if addresses are available
+    // Инициализация контрактов если адреса доступны
     if (contractAddresses.userProfile && contractAddresses.gymCoin) {
       userProfileContract = new ethers.Contract(
         contractAddresses.userProfile,
@@ -40,13 +66,13 @@ export const initializeWeb3 = async () => {
         signer
       );
     } else {
-      console.warn("Contract addresses not found");
+      console.warn("Адреса контрактов не найдены");
     }
     
     return { provider, signer, userProfileContract, gymCoinContract };
   } catch (error) {
-    console.error("Error initializing Web3:", error);
-    throw new Error(error.message || "Failed to initialize Web3");
+    console.error("Ошибка инициализации Web3:", error);
+    throw new Error(error.message || "Не удалось инициализировать Web3");
   }
 };
 

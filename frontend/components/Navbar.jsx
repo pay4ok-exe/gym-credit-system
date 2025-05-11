@@ -112,12 +112,12 @@ export default function Navbar({ connected, setConnected }) {
         return 'Ethereum Mainnet'
       case '0xaa36a7':
         return 'Sepolia Testnet'
-      case '0x539':
+      case '0x7a69':
         return 'Localhost'
       default:
         return 'Unknown Network'
     }
-  }
+  }  
 
   const connectWallet = async () => {
     setLoading(true)
