@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getUserAccount, getUserInfo, registerUser, getGymCoinBalance } from '../utils/contractHelpers'
+import { getUserAccount, getUserInfo, registerUser, getGymCoinBalance, getEthBalance, getContractAddresses } from '../utils/contractHelpers'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, User, Mail, Wallet, Coins, CheckCircle } from 'lucide-react'
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
+import { ethers } from 'ethers';
+import { GymCoinABI } from '../utils/abis/GymCoinABI';
+
 
 export default function UserProfile({ connected }) {
   const [account, setAccount] = useState('')
@@ -18,11 +21,75 @@ export default function UserProfile({ connected }) {
   const [email, setEmail] = useState('')
   const [isRegistered, setIsRegistered] = useState(false)
   const [balance, setBalance] = useState('0')
+  const [ethBalance, setEthBalance] = useState('0');
   const [registrationForm, setRegistrationForm] = useState({
     username: '',
     email: ''
   })
   const [loading, setLoading] = useState(false)
+
+  // Обновленная функция для UserProfile.jsx
+const getTestTokens = async () => {
+  try {
+    toast.info("Получение тестовых токенов...");
+    
+    // Получаем текущий аккаунт
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const signer = provider.getSigner();
+    const currentAccount = await signer.getAddress();
+    
+    // Подключаемся к локальной сети как владелец
+    const localProvider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+    const ownerWallet = localProvider.getSigner(0); // Первый аккаунт Hardhat - владелец
+    
+    // Получаем адрес контракта
+    const gymCoinAddress = getContractAddresses().gymCoin;
+    
+    // Создаем экземпляр контракта от имени владельца
+    const gymCoinContract = new ethers.Contract(
+      gymCoinAddress,
+      [
+        "function transfer(address to, uint256 amount) returns (bool)",
+        "function balanceOf(address account) view returns (uint256)"
+      ],
+      ownerWallet
+    );
+    
+    // Проверяем баланс до перевода для отладки
+    const balanceBefore = await gymCoinContract.balanceOf(currentAccount);
+    console.log("Баланс до перевода:", ethers.utils.formatUnits(balanceBefore, 18));
+    
+    // Отправляем токены - используем parseUnits для правильной конвертации с 18 десятичными знаками
+    const amount = ethers.utils.parseUnits("1000", 18);
+    console.log("Отправляем сумму:", ethers.utils.formatUnits(amount, 18));
+    
+    const tx = await gymCoinContract.transfer(currentAccount, amount);
+    console.log("Транзакция отправлена:", tx.hash);
+    
+    await tx.wait();
+    console.log("Транзакция подтверждена");
+    
+    // Проверяем баланс после перевода
+    const balanceAfter = await gymCoinContract.balanceOf(currentAccount);
+    console.log("Баланс после перевода:", ethers.utils.formatUnits(balanceAfter, 18));
+    
+    toast.success("Получено 1000 GC токенов! Баланс скоро обновится.");
+    
+    // Принудительно обновляем баланс на экране с небольшой задержкой
+    setTimeout(async () => {
+      const newBalance = await getGymCoinBalance(currentAccount);
+      setBalance(newBalance);
+      console.log("Баланс установлен:", newBalance);
+      
+      // Также принудительно обновляем отображение
+      toast.success("Баланс обновлен до: " + parseFloat(newBalance).toFixed(2) + " GC");
+    }, 1000);
+    
+  } catch (error) {
+    console.error("Ошибка при получении тестовых токенов:", error);
+    toast.error("Не удалось получить токены: " + error.message);
+  }
+};
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -41,6 +108,8 @@ export default function UserProfile({ connected }) {
           if (fetchedIsRegistered) {
             const balance = await getGymCoinBalance(account)
             setBalance(balance)
+            const ethBalance = await getEthBalance(account);
+            setEthBalance(ethBalance);
           }
         } catch (error) {
           console.error("Error fetching user data:", error)
@@ -195,9 +264,18 @@ export default function UserProfile({ connected }) {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Balance</Label>
-                  <p className="font-mono text-xl font-bold">{parseFloat(balance).toFixed(2)} <span className="text-sm font-normal">GC</span></p>
+                  <p className="font-mono text-xl font-bold">{balance} <span className="text-sm font-normal">GC</span></p>
+                  <p className="font-mono text-md">{parseFloat(ethBalance).toFixed(2)} <span className="text-sm font-normal">ETH</span></p>
                 </div>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={getTestTokens}
+                className="h-7 px-2 py-0 text-xs"
+              >
+                Get 1000 GC
+              </Button>
             </div>
           </div>
         ) : (

@@ -13,6 +13,7 @@ contract GymCoin is ERC20, Ownable {
     event RatesUpdated(uint256 newSellRate, uint256 newBuyRate);
     event TokensPurchased(address indexed buyer, uint256 ethAmount, uint256 tokenAmount);
     event TokensSold(address indexed seller, uint256 tokenAmount, uint256 ethAmount);
+    event TestTokensGiven(address indexed recipient, uint256 amount);
     
     constructor(address _userProfileAddress) ERC20("Gym Coin", "GC") Ownable(msg.sender) {
         userProfile = UserProfile(_userProfileAddress);
@@ -27,7 +28,7 @@ contract GymCoin is ERC20, Ownable {
         require(gcAmount > 0, "Amount must be greater than 0");
         require(userProfile.isUserRegistered(msg.sender), "User not registered");
         
-        uint256 ethRequired = (gcAmount * 10**18) / sellRate;
+        uint256 ethRequired = gcAmount / sellRate;
         require(msg.value >= ethRequired, "Insufficient ETH sent");
         
         address owner = owner();
@@ -49,7 +50,7 @@ contract GymCoin is ERC20, Ownable {
         require(userProfile.isUserRegistered(msg.sender), "User not registered");
         require(balanceOf(msg.sender) >= gcAmount, "Insufficient token balance");
         
-        uint256 ethAmount = (gcAmount * 10**18) / buyRate;
+        uint256 ethAmount = gcAmount / buyRate;
         require(address(this).balance >= ethAmount, "Contract has insufficient ETH");
         
         // Transfer tokens from seller to owner
@@ -59,6 +60,17 @@ contract GymCoin is ERC20, Ownable {
         payable(msg.sender).transfer(ethAmount);
         
         emit TokensSold(msg.sender, gcAmount, ethAmount);
+    }
+    
+    // Функция для выдачи тестовых токенов
+    function giveTestTokens(address recipient, uint256 amount) public onlyOwner {
+        require(amount > 0, "Amount must be greater than 0");
+        require(balanceOf(owner()) >= amount, "Insufficient tokens");
+        
+        // Переводим токены от владельца получателю
+        _transfer(owner(), recipient, amount);
+        
+        emit TestTokensGiven(recipient, amount);
     }
     
     function setRates(uint256 _sellRate, uint256 _buyRate) public onlyOwner {

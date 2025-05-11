@@ -9,89 +9,52 @@ let signer;
 let userProfileContract;
 let gymCoinContract;
 
+// In frontend/utils/contractHelpers.js - update initializeWeb3 function
 export const initializeWeb3 = async () => {
-  console.log("Initializing Web3");
   if (typeof window === 'undefined' || !window.ethereum) {
     throw new Error("MetaMask not installed");
   }
   
   try {
-    // Create provider without any extra parameters
     provider = new ethers.providers.Web3Provider(window.ethereum);
-    
-    console.log("Requesting accounts");
     await window.ethereum.request({ method: 'eth_requestAccounts' });
     signer = provider.getSigner();
     
+    // Check if we're on the local network (chainId 31337)
     const network = await provider.getNetwork();
-    console.log("Current network:", network);
-    
-    // Check if connected to localhost/Hardhat
-    if (network.chainId !== 31337 && network.chainId !== 1337) {
-      console.warn("Not connected to local network");
-      
+    if (network.chainId !== 31337) {
+      console.warn("Not connected to local Hardhat network");
+      // Try to switch to local network
       try {
-        console.log("Switching to Hardhat network");
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: '0x7A69' }], // 31337 in hex
         });
-      } catch (switchError) {
-        console.error("Error switching network:", switchError);
         
-        if (switchError.code === 4902) {
-          try {
-            console.log("Adding local network to MetaMask");
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [
-                {
-                  chainId: '0x7A69',
-                  chainName: 'Hardhat Local',
-                  nativeCurrency: {
-                    name: 'Ethereum',
-                    symbol: 'ETH',
-                    decimals: 18
-                  },
-                  rpcUrls: ['http://127.0.0.1:8545/'],
-                },
-              ],
-            });
-          } catch (addError) {
-            console.error("Error adding network:", addError);
-            throw addError;
-          }
-        } else {
-          throw switchError;
-        }
+        // Reinitialize after network switch
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+      } catch (error) {
+        console.error("Error switching network:", error);
+        throw new Error("Please switch to Hardhat network (localhost:8545)");
       }
-      
-      // Re-initialize provider after network switch
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      signer = provider.getSigner();
     }
     
-    // Initialize contracts
-    if (contractAddresses.userProfile && contractAddresses.gymCoin) {
-      userProfileContract = new ethers.Contract(
-        contractAddresses.userProfile,
-        UserProfileABI,
-        signer
-      );
-      
-      gymCoinContract = new ethers.Contract(
-        contractAddresses.gymCoin,
-        GymCoinABI,
-        signer
-      );
-      
-      const account = await signer.getAddress();
-      console.log("Contracts initialized for account:", account);
-    }
+    userProfileContract = new ethers.Contract(
+      contractAddresses.userProfile,
+      UserProfileABI,
+      signer
+    );
+    
+    gymCoinContract = new ethers.Contract(
+      contractAddresses.gymCoin,
+      GymCoinABI,
+      signer
+    );
     
     return { provider, signer, userProfileContract, gymCoinContract };
   } catch (error) {
-    console.error("Error in initializeWeb3:", error);
+    console.error("Error initializing web3:", error);
     throw error;
   }
 };
@@ -191,27 +154,71 @@ export const getUserInfo = async (address) => {
 };
 
 // Get user's GymCoin balance
+// In frontend/utils/contractHelpers.js - update getGymCoinBalance function
+
+export const getEthBalance = async (address) => {
+  if (typeof window === 'undefined' || !window.ethereum) return '0';
+  
+  try {
+    if (!provider) {
+      await initializeWeb3();
+    }
+    
+    const balance = await provider.getBalance(address);
+    return ethers.utils.formatEther(balance); // Форматирует в ETH
+  } catch (error) {
+    console.error("Error getting ETH balance:", error);
+    return '0';
+  }
+};
+
 export const getGymCoinBalance = async (address) => {
   if (typeof window === 'undefined' || !window.ethereum) return '0';
   
   if (!gymCoinContract) {
     try {
+      console.log("GymCoin contract not initialized, initializing Web3...");
       await initializeWeb3();
     } catch (error) {
+      console.error("Failed to initialize Web3 for balance check:", error);
       return '0';
     }
   }
   
   try {
-    // Check if contract is properly initialized
+    console.log("Attempting to get balance for address:", address);
+    
+    // Log contract addresses for debugging
+    console.log("Current contract addresses:", {
+      userProfile: contractAddresses.userProfile,
+      gymCoin: contractAddresses.gymCoin
+    });
+    
+    // Verify contract is initialized properly
     if (!gymCoinContract || !gymCoinContract.balanceOf) {
-      throw new Error("GymCoin contract not properly initialized");
+      console.error("GymCoin contract not properly initialized");
+      return '0';
     }
     
+    // Explicitly log network info
+    const network = await provider.getNetwork();
+    console.log("Current network:", network);
+    
+    // Get balance with extra logging
+    console.log("Calling balanceOf...");
     const balance = await gymCoinContract.balanceOf(address);
-    return ethers.utils.formatUnits(balance, 18);
+    console.log("Raw balance result:", balance.toString());
+    
+    const formattedBalance = ethers.utils.formatUnits(balance, 18);
+    console.log("Formatted balance:", formattedBalance);
+    
+    return formattedBalance;
   } catch (error) {
     console.error("Error getting token balance:", error);
+    // More detailed error logging
+    if (error.code === 'CALL_EXCEPTION') {
+      console.error("Contract call exception - this often means the contract address is wrong");
+    }
     return '0';
   }
 };
