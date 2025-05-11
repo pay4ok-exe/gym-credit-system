@@ -1,38 +1,8 @@
 // frontend/utils/contractHelpers.js
 import { ethers } from 'ethers';
 import contractAddresses from './contractAddresses.json';
-
-// Import ABIs from generated artifacts (путь автоматически установлен hardhat.config.js)
-let userProfileABI;
-let gymCoinABI;
-
-// Динамический импорт ABIs с проверкой ошибок
-try {
-  // Если компиляция прошла, ABIs будут доступны здесь
-  userProfileABI = require('../artifacts/contracts/UserProfile.sol/UserProfile.json').abi;
-  gymCoinABI = require('../artifacts/contracts/GymCoin.sol/GymCoin.json').abi;
-} catch (error) {
-  console.error("Ошибка загрузки ABI, используем резервные интерфейсы:", error);
-  
-  // Резервные минимальные ABI для критических функций
-  userProfileABI = [
-    "function registerUser(string memory _username, string memory _email) public",
-    "function getUserInfo(address userAddress) public view returns (string memory username, string memory email, bool isRegistered)",
-    "function isUserRegistered(address userAddress) public view returns (bool)",
-    "function owner() public view returns (address)"
-  ];
-
-  gymCoinABI = [
-    "function buy(uint256 gcAmount) public payable",
-    "function sell(uint256 gcAmount) public",
-    "function setRates(uint256 _sellRate, uint256 _buyRate) public",
-    "function balanceOf(address account) public view returns (uint256)",
-    "function sellRate() public view returns (uint256)",
-    "function buyRate() public view returns (uint256)",
-    "function transfer(address to, uint256 amount) public returns (bool)",
-    "function owner() public view returns (address)"
-  ];
-}
+import { UserProfileABI } from './abis/UserProfileABI';
+import { GymCoinABI } from './abis/GymCoinABI';
 
 let provider;
 let signer;
@@ -60,13 +30,13 @@ export const initializeWeb3 = async () => {
     if (contractAddresses.userProfile && contractAddresses.gymCoin) {
       userProfileContract = new ethers.Contract(
         contractAddresses.userProfile,
-        userProfileABI,
+        UserProfileABI,
         signer
       );
       
       gymCoinContract = new ethers.Contract(
         contractAddresses.gymCoin,
-        gymCoinABI,
+        GymCoinABI,
         signer
       );
     } else {
@@ -80,6 +50,7 @@ export const initializeWeb3 = async () => {
   }
 };
 
+// Остальные функции остаются без изменений
 // Get the connected user's account
 export const getUserAccount = async () => {
   if (typeof window === 'undefined' || !window.ethereum) return null;

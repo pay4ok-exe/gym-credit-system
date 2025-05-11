@@ -9,22 +9,22 @@ async function main() {
   const userProfile = await UserProfile.deploy();
   
   // Ждем, пока контракт будет действительно развернут
-  await userProfile.deployTransaction.wait();
-  console.log("UserProfile deployed to:", userProfile.address);
+  await userProfile.waitForDeployment();
+  console.log("UserProfile deployed to:", await userProfile.getAddress());
 
   // Deploy GymCoin contract
   const GymCoin = await ethers.getContractFactory("GymCoin");
-  const gymCoin = await GymCoin.deploy(userProfile.address);
+  const gymCoin = await GymCoin.deploy(await userProfile.getAddress());
   
   // Ждем, пока контракт будет действительно развернут
-  await gymCoin.deployTransaction.wait();
-  console.log("GymCoin deployed to:", gymCoin.address);
+  await gymCoin.waitForDeployment();
+  console.log("GymCoin deployed to:", await gymCoin.getAddress());
 
   // Save the contract addresses
   const fs = require("fs");
   const contractAddresses = {
-    userProfile: userProfile.address,
-    gymCoin: gymCoin.address,
+    userProfile: await userProfile.getAddress(),
+    gymCoin: await gymCoin.getAddress(),
   };
 
   // Ensure the directory exists
