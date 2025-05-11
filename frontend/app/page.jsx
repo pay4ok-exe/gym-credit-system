@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Activity, Dumbbell, TrendingUp, ArrowDown, ArrowRight, Wallet, ShieldCheck, Share2 } from "lucide-react"
+import NetworkWarning from '@/components/NetworkWarning'
 
 export default function Home() {
   const router = useRouter()
@@ -31,6 +32,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
+      <NetworkWarning />
       <Navbar connected={connected} setConnected={setConnected} />
       
       <main className="max-w-screen-xl mx-auto px-4 pt-24 pb-16 md:px-6">

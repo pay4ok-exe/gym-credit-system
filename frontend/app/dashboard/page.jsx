@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Wallet, CreditCard, History, Settings, ArrowDown } from "lucide-react"
 import { getUserAccount, isContractOwner } from '../../utils/contractHelpers'
+import NetworkWarning from '@/components/NetworkWarning'
 
 export default function Dashboard() {
   const [connected, setConnected] = useState(false)
@@ -45,6 +46,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      <NetworkWarning />
       <Navbar connected={connected} setConnected={setConnected} />
       
       <main className="max-w-screen-xl mx-auto px-4 pt-24 pb-16 md:px-6">

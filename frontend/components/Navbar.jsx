@@ -17,6 +17,48 @@ import { formatAddress } from '@/lib/utils'
 import { Wallet, LogOut, ChevronDown, ExternalLink, Home, LayoutDashboard, Settings, User, Coins } from 'lucide-react'
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
+import { useTheme } from "next-themes"
+import { SunIcon, MoonIcon } from "lucide-react"
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  // Добавляем состояние для отслеживания монтирования компонента
+  const [mounted, setMounted] = useState(false)
+
+  // После монтирования компонента, отмечаем это в состоянии
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="rounded-full h-8 w-8"
+      >
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    )
+  }
+
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="rounded-full h-8 w-8"
+    >
+      {theme === "dark" ? (
+        <SunIcon className="h-4 w-4" />
+      ) : (
+        <MoonIcon className="h-4 w-4" />
+      )}
+    </Button>
+  )
+}
+
 
 export default function Navbar({ connected, setConnected }) {
   const pathname = usePathname()
@@ -29,32 +71,29 @@ export default function Navbar({ connected, setConnected }) {
   useEffect(() => {
     const checkIfWalletIsConnected = async () => {
       if (window.ethereum) {
-        try {
-          await initializeWeb3()
-          const account = await getUserAccount()
+        window.ethereum.on('chainChanged', async (chainId) => {
+          updateNetworkName(chainId);
           
-          // Check if we got a valid account
-          if (account) {
-            setAccount(account)
-            setConnected(true)
-            
-            // Check if account is owner
-            const ownerStatus = await isContractOwner(account)
-            setIsOwner(ownerStatus)
-            
-            // Get the network name
-            const chainId = await window.ethereum.request({ method: 'eth_chainId' })
-            updateNetworkName(chainId)
-            
-            toast.success("Wallet connected", {
-              description: `Connected to ${formatAddress(account)}`,
-              duration: 3000
-            })
+          // Если пользователь переключается с локальной сети
+          if (chainId !== '0x7a69') { // 31337 в hex
+            toast.warning("Неподдерживаемая сеть", {
+              description: "Приложение работает только с локальной сетью Hardhat"
+            });
+            setConnected(false);
+          } else if (account) {
+            // Если переключились на Hardhat и уже был подключен аккаунт
+            try {
+              await initializeWeb3();
+              setConnected(true);
+              toast.success("Подключено к локальной сети", {
+                description: "Теперь вы можете использовать приложение"
+              });
+            } catch (error) {
+              console.error("Ошибка реинициализации:", error);
+            }
           }
-        } catch (error) {
-          console.error(error)
-        }
-      }
+        });
+      }    
     }
     
     checkIfWalletIsConnected()
@@ -120,85 +159,98 @@ export default function Navbar({ connected, setConnected }) {
   }  
 
   const connectWallet = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       if (!window.ethereum) {
-        toast.error("MetaMask not detected", {
-          description: "Please install MetaMask to use this application",
+        toast.error("MetaMask не обнаружен", {
+          description: "Пожалуйста, установите MetaMask для использования этого приложения",
           action: {
-            label: "Install",
+            label: "Установить",
             onClick: () => window.open("https://metamask.io/download/", "_blank")
           }
-        })
-        return
+        });
+        setLoading(false);
+        return;
       }
       
-      // Check if we're on Sepolia network
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' })
-      if (chainId !== '0xaa36a7') { // Sepolia chainId
-        try {
-          // Try to switch to Sepolia
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa36a7' }], // Sepolia chainId
-          })
-        } catch (switchError) {
-          // If Sepolia isn't added to MetaMask, add it
-          if (switchError.code === 4902) {
-            try {
+      // Переключаемся на локальную сеть Hardhat
+      try {
+        // Сначала проверяем текущую сеть
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        console.log("Текущая сеть в MetaMask:", chainId);
+        
+        // Если не Hardhat (локальная сеть) - переключаем
+        if (chainId !== '0x7a69') { // 31337 в hex
+          console.log("Переключение на локальную сеть Hardhat");
+          
+          try {
+            // Пытаемся переключиться на Hardhat
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x7a69' }], // 31337 в hex
+            });
+            console.log("Успешно переключились на Hardhat сеть");
+          } catch (switchError) {
+            // Если сети нет - добавляем ее
+            if (switchError.code === 4902) {
+              console.log("Добавляем сеть Hardhat в MetaMask");
               await window.ethereum.request({
                 method: 'wallet_addEthereumChain',
                 params: [
                   {
-                    chainId: '0xaa36a7',
-                    chainName: 'Sepolia Testnet',
+                    chainId: '0x7a69', // 31337 в hex
+                    chainName: 'Hardhat Local',
                     nativeCurrency: {
-                      name: 'Sepolia ETH',
-                      symbol: 'SEP',
+                      name: 'Ethereum',
+                      symbol: 'ETH',
                       decimals: 18
                     },
-                    rpcUrls: ['https://sepolia.infura.io/v3/'],
-                    blockExplorerUrls: ['https://sepolia.etherscan.io/'],
+                    rpcUrls: ['http://127.0.0.1:8545/'],
                   },
                 ],
-              })
-            } catch (addError) {
-              toast.error("Failed to add Sepolia network")
-              setLoading(false)
-              return
+              });
+              console.log("Сеть Hardhat добавлена");
+            } else {
+              throw switchError;
             }
-          } else {
-            toast.error("Failed to switch to Sepolia network")
-            setLoading(false)
-            return
           }
+        } else {
+          console.log("Уже подключены к сети Hardhat");
         }
+        
+        // Теперь инициализируем Web3 после переключения сети
+        await initializeWeb3();
+        const account = await getUserAccount();
+        setAccount(account);
+        setConnected(true);
+        
+        // Проверяем владельца контракта
+        const ownerStatus = await isContractOwner(account);
+        setIsOwner(ownerStatus);
+        
+        // Получаем имя сети
+        updateNetworkName(await window.ethereum.request({ method: 'eth_chainId' }));
+        
+        toast.success("Кошелек подключен", {
+          description: `Подключено к ${formatAddress(account)}`,
+        });
+      } catch (error) {
+        console.error("Ошибка при переключении сети:", error);
+        toast.error("Не удалось переключиться на локальную сеть", {
+          description: "Пожалуйста, вручную переключитесь на Localhost 8545 в MetaMask"
+        });
+        setLoading(false);
+        return;
       }
-      
-      await initializeWeb3()
-      const account = await getUserAccount()
-      setAccount(account)
-      setConnected(true)
-      
-      // Check if account is owner
-      const ownerStatus = await isContractOwner(account)
-      setIsOwner(ownerStatus)
-      
-      // Get the network name
-      updateNetworkName(await window.ethereum.request({ method: 'eth_chainId' }))
-      
-      toast.success("Wallet connected", {
-        description: `Connected to ${formatAddress(account)}`,
-      })
     } catch (error) {
-      console.error(error)
-      toast.error("Failed to connect wallet", {
-        description: error.message || "Please try again"
-      })
+      console.error("Ошибка подключения кошелька:", error);
+      toast.error("Не удалось подключить кошелек", {
+        description: error.message || "Пожалуйста, попробуйте снова"
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const disconnectWallet = () => {
     setAccount('')
@@ -231,6 +283,7 @@ export default function Navbar({ connected, setConnected }) {
       <header className="max-w-screen-xl mx-auto py-4 px-4 md:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            
             <Link href="/">
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-chart-1/10 cursor-pointer">
                 <Wallet className="h-5 w-5 text-chart-1" />
@@ -252,6 +305,7 @@ export default function Navbar({ connected, setConnected }) {
           </div>
 
           <div className="flex items-center gap-3">
+          <ThemeToggle />
             {connected && (
               <div className="hidden md:flex items-center px-3 py-1.5 rounded-full bg-muted/30 text-muted-foreground text-sm">
                 <span>{networkName}</span>
