@@ -166,7 +166,7 @@ export default function Navbar({ connected, setConnected }) {
           description: "Пожалуйста, установите MetaMask для использования этого приложения",
           action: {
             label: "Установить",
-            onClick: () => window.open("https://metamask.io/download/", "_blank")
+            onClick: () => window.open("https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=ru&utm_source=ext_sidebar", "_blank")
           }
         });
         setLoading(false);

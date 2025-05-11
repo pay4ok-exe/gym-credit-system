@@ -10,46 +10,44 @@ let userProfileContract;
 let gymCoinContract;
 
 export const initializeWeb3 = async () => {
-  console.log("Инициализация Web3");
+  console.log("Initializing Web3");
   if (typeof window === 'undefined' || !window.ethereum) {
     throw new Error("MetaMask not installed");
   }
   
   try {
-    // Сброс кеша провайдера при новой инициализации
-    provider = new ethers.providers.Web3Provider(window.ethereum, { polling: true });
-    provider._lastBlockNumber = -1; // Сброс номера последнего блока
+    // Create provider without any extra parameters
+    provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    console.log("Запрос аккаунтов");
+    console.log("Requesting accounts");
     await window.ethereum.request({ method: 'eth_requestAccounts' });
-    await provider.send("eth_requestAccounts", []);
     signer = provider.getSigner();
     
     const network = await provider.getNetwork();
-    console.log("Текущая сеть:", network);
+    console.log("Current network:", network);
     
-    // Принимаем любую локальную сеть
+    // Check if connected to localhost/Hardhat
     if (network.chainId !== 31337 && network.chainId !== 1337) {
-      console.warn("Не подключено к локальной сети");
+      console.warn("Not connected to local network");
       
       try {
-        console.log("Переключение на локальную сеть (Hardhat)");
+        console.log("Switching to Hardhat network");
         await window.ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: '0x7A69' }], // 31337 в 16-ричной системе
+          params: [{ chainId: '0x7A69' }], // 31337 in hex
         });
       } catch (switchError) {
-        console.error("Ошибка переключения:", switchError);
+        console.error("Error switching network:", switchError);
         
         if (switchError.code === 4902) {
           try {
-            console.log("Добавление локальной сети в MetaMask");
+            console.log("Adding local network to MetaMask");
             await window.ethereum.request({
               method: 'wallet_addEthereumChain',
               params: [
                 {
                   chainId: '0x7A69',
-                  chainName: 'Localhost 8545',
+                  chainName: 'Hardhat Local',
                   nativeCurrency: {
                     name: 'Ethereum',
                     symbol: 'ETH',
@@ -60,47 +58,40 @@ export const initializeWeb3 = async () => {
               ],
             });
           } catch (addError) {
-            console.error("Ошибка добавления сети:", addError);
+            console.error("Error adding network:", addError);
+            throw addError;
           }
+        } else {
+          throw switchError;
         }
       }
+      
+      // Re-initialize provider after network switch
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      signer = provider.getSigner();
     }
     
-    // Повторно инициализируем провайдер после переключения сети
-    provider = new ethers.providers.Web3Provider(window.ethereum, { polling: true });
-    signer = provider.getSigner();
-    
-    console.log("Адреса контрактов:", contractAddresses);
-    
-    // Инициализация контрактов с проверкой
+    // Initialize contracts
     if (contractAddresses.userProfile && contractAddresses.gymCoin) {
-      try {
-        userProfileContract = new ethers.Contract(
-          contractAddresses.userProfile,
-          UserProfileABI,
-          signer
-        );
-        
-        gymCoinContract = new ethers.Contract(
-          contractAddresses.gymCoin,
-          GymCoinABI,
-          signer
-        );
-        
-        // Простой тест для проверки соединения
-        const account = await signer.getAddress();
-        console.log("Контракты инициализированы для аккаунта:", account);
-      } catch (contractError) {
-        console.error("Ошибка инициализации контрактов:", contractError);
-        throw new Error("Не удалось инициализировать контракты: " + contractError.message);
-      }
-    } else {
-      console.error("Адреса контрактов отсутствуют");
+      userProfileContract = new ethers.Contract(
+        contractAddresses.userProfile,
+        UserProfileABI,
+        signer
+      );
+      
+      gymCoinContract = new ethers.Contract(
+        contractAddresses.gymCoin,
+        GymCoinABI,
+        signer
+      );
+      
+      const account = await signer.getAddress();
+      console.log("Contracts initialized for account:", account);
     }
     
     return { provider, signer, userProfileContract, gymCoinContract };
   } catch (error) {
-    console.error("Ошибка в initializeWeb3:", error);
+    console.error("Error in initializeWeb3:", error);
     throw error;
   }
 };

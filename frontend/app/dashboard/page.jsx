@@ -62,7 +62,7 @@ export default function Dashboard() {
               </div>
             </div>
             <Button 
-              onClick={() => window.open("https://metamask.io/download/", "_blank")}
+              onClick={() => window.open("https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=ru&utm_source=ext_sidebar", "_blank")}
               className="rounded-full bg-amber-500 hover:bg-amber-500/90 text-white"
             >
               Install MetaMask
